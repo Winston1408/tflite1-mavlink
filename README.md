@@ -16,6 +16,8 @@ Required software packages:
 2)  Install TensorFlow-Lite-Object-Detection
 3)  Install ArduCam
 4)  Install MavLink
+To install these packages, simply run:
+  >> sh get_pi_requirements.sh
 
 References:
 1)  https://github.com/EdjeElectronics/TensorFlow-Lite-Object-Detection-on-Android-and-Raspberry-Pi/blob/master/deploy_guides/Raspberry_Pi_Guide.md
