@@ -22,11 +22,13 @@ sudo apt-get -y install libxvidcore-dev libx264-dev
 sudo apt-get -y install libgtk2.0-dev libgtk-3-dev
 sudo apt-get -y install libatlas-base-dev gfortran
 
-sudo apt-get -y install qt4-dev-tools 
+#sudo apt-get -y install qt4-dev-tools 
 
 # Get packages required for OpenCV
 
 sudo python3 -m pip install -U pip
+python3 -m pip install --upgrade pip
+
 sudo python3 -m pip install -U matplotlib
 sudo apt-get -y install libqt5gui5
 sudo modprobe bcm2835-v4l2
@@ -36,12 +38,12 @@ sudo apt-get -y install libqt5test5
 pip3 install opencv-python==3.4.11.41
 
 # Dronekit and MAVLink
-sudo pip install pyserial
-sudo pip install dronekit
-sudo pip install MAVProxy
-git clone https://github.com/mavlink/mavlink.git --recursive
-git clone https://github.com/pymavlink.git recursive
-python3 -m pip install -r pymavlink/requirements.txt
+pip install pyserial
+pip install dronekit
+pip install MAVProxy
+#git clone https://github.com/mavlink/mavlink.git --recursive
+#git clone https://github.com/pymavlink.git recursive
+#python3 -m pip install -r pymavlink/requirements.txt
 
 pip3 install PyYAML mavproxy --user
 pip3 install mavproxy pymavlink --user --upgrade
