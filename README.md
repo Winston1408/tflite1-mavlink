@@ -12,7 +12,7 @@ Required hardware:
 5)  Arducam Upgraded Camera Pan Tilt Platform Compatible with Raspberry Pi Camera Module 3/V1/V2, Nvidia Jetson Nano/Xavier NX
 
 Required software packages:
-1)  Install Rasbian Headless on RasPi4B
+1)  Install Rasbian Headless (Bullseye) on RasPi4B
 2)  Install TensorFlow-Lite-Object-Detection
 3)  Install ArduCam
 4)  Install MavLink
@@ -24,3 +24,18 @@ References:
 2)  https://github.com/EdjeElectronics/TensorFlow-Lite-Object-Detection-on-Android-and-Raspberry-Pi/blob/master/deploy_guides/Raspberry_Pi_Guide.md
 3)  https://github.com/ArduCAM/PCA9685
 4)  https://ardupilot.org/dev/docs/raspberry-pi-via-mavlink.html
+
+Raspberry Pi4 HW Configuraton 
+1)  Set up RPi for UART comm in raspi-config.
+    In "Interfaces" tab, Disable Serial Console.  
+    Enable for Serial Port.
+2)  In /boot/config.txt append
+    dtoverlay=disable-bt
+    enable_uart=1
+3)  In /etc/pip.conf append
+    break-system-packages = true
+
+Download this code and run the shell script:
+git clone https://github.com/winston1408/tflite1-mavlink.git
+cd tflite1-mavlink/
+sh get_pi_requirements.sh
