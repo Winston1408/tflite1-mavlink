@@ -37,10 +37,10 @@ Raspberry Pi4 HW Configuraton in Raspi-config
     select: I5 I2C Enable/disable automatic loading of I2C kernel module.
     select: Yes
 5)  select: Finish but don't reboot.
-6)  >> vi sudo /boot/config.txt append
+6)  >> sudo vi /boot/config.txt append
     dtoverlay=disable-bt
     enable_uart=1
-7)  >> vi sudo /etc/pip.conf append
+7)  >> sudo vi /etc/pip.conf append
     break-system-packages = true
 8)  >> reboot
 
