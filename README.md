@@ -26,23 +26,23 @@ References:
 4)  https://ardupilot.org/dev/docs/raspberry-pi-via-mavlink.html
 
 Raspberry Pi4 HW Configuraton in Raspi-config
-    >> sudo raspi-config
-    1)  select: 3 Interface Options    Configure connections to peripherals.
-    2)  select: I1 Legacy Camera Enable/disable legacy camera support.  
-        select: Yes
-    3)  select: I6 Serial Port Enable/disable shell messages on serial connection.
-        select: No to Would you like a login shell to be accessible over serial?
-        select: Yes to Would you like the serial port hardware to be enabled?
-    4)  select: 3 Interface Options    Configure connections to peripherals.
-        select: I5 I2C Enable/disable automatic loading of I2C kernel module.
-        select: Yes
-    5)  select: Finish but don't reboot.
-    6)  >> vi sudo /boot/config.txt append
-        dtoverlay=disable-bt
-        enable_uart=1
-    7)  >> vi sudo /etc/pip.conf append
-        break-system-packages = true
-    8)  >> reboot
+>> sudo raspi-config
+1)  select: 3 Interface Options    Configure connections to peripherals.
+2)  select: I1 Legacy Camera Enable/disable legacy camera support.  
+    select: Yes
+3)  select: I6 Serial Port Enable/disable shell messages on serial connection.
+    select: No to Would you like a login shell to be accessible over serial?
+    select: Yes to Would you like the serial port hardware to be enabled?
+4)  select: 3 Interface Options    Configure connections to peripherals.
+    select: I5 I2C Enable/disable automatic loading of I2C kernel module.
+    select: Yes
+5)  select: Finish but don't reboot.
+6)  >> vi sudo /boot/config.txt append
+    dtoverlay=disable-bt
+    enable_uart=1
+7)  >> vi sudo /etc/pip.conf append
+    break-system-packages = true
+8)  >> reboot
 
 Download this code and run the shell script:
 git clone https://github.com/winston1408/tflite1-mavlink.git
