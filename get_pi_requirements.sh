@@ -12,7 +12,7 @@ sudo apt-get -y install python3-wxgtk4.0 python3-matplotlib python3-lxml
 sudo apt-get -y install python3-pygame python3-scipy
 
 sudo pip install future
-sudo apt-get install screen
+sudo apt-get -y install screen
 
 
 sudo apt-get -y install build-essential cmake pkg-config
@@ -22,7 +22,6 @@ sudo apt-get -y install libxvidcore-dev libx264-dev
 sudo apt-get -y install libgtk2.0-dev libgtk-3-dev
 sudo apt-get -y install libatlas-base-dev gfortran
 
-#sudo apt-get -y install qt4-dev-tools 
 
 # Get packages required for OpenCV
 
@@ -37,6 +36,17 @@ sudo apt-get -y install libqt5test5
 # Need to get an older version of OpenCV because version 4 has errors
 pip3 install opencv-python==3.4.11.41
 
+# Get Google-Coral
+echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+sudo apt-get update
+sudo apt-get -y install libedgetpu-dev
+sudo apt-get -y install libedgetpu1-std
+sudo apt-get -y install libedgetpu1-max
+sudo apt-get -y install python3-pycoral
+sudo apt-get -y install libopenblas-dev
+
+
 # Dronekit and MAVLink
 pip install pyserial
 pip install dronekit
@@ -47,6 +57,8 @@ pip install MAVProxy
 
 pip3 install PyYAML mavproxy --user
 pip3 install mavproxy pymavlink --user --upgrade
+
+python3 -m pip install adafruit-circuitpython-servokit
 
 export PATH="/usr/local/bin:$PATH"
 source ~/.bash_profile
