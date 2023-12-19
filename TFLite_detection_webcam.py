@@ -1,25 +1,14 @@
 ######## Webcam Object Detection Using Tensorflow-trained Classifier #########
+######## Command arduplane over MAVLink ########
+# To run:
+# python3 TFLite_detection_webcam.py --modeldir=Sample_TFLite_model --edgetpu
 #
-# Author: Evan Juras
-# Date: 10/27/19
-# Description: 
-# This program uses a TensorFlow Lite model to perform object detection on a live webcam
-# feed. It draws boxes and scores around the objects of interest in each frame from the
-# webcam. To improve FPS, the webcam object runs in a separate thread from the main program.
-# This script will work with either a Picamera or regular USB webcam.
-#
-# This code is based off the TensorFlow Lite image classification example at:
-# https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/examples/python/label_image.py
-#
-# I added my own method of drawing boxes and labels using OpenCV.
 
 from __future__ import print_function
 from dronekit import connect, VehicleMode, LocationGlobal, LocationGlobalRelative
 from pymavlink import mavutil  # Needed for command message definitions
 import time
 import math
-
-# Import packages
 import os
 import argparse
 import cv2
@@ -31,38 +20,71 @@ import importlib.util
 
 import adafruit_servokit
 
+##################### Camera Gimbal Control ##########################
+
 class ServoKit(object):
-    default_angle_x = 90
-    default_angle_y = 90
-    angle_x_max = default_angle_x + 45
-    angle_x_min = default_angle_x - 45
-    angle_y_max = default_angle_y + 45
-    angle_y_min = default_angle_y - 45    
+    servo_ch_x = 1
+    servo_ch_y = 0
+    default_x_deg = 90 #goes from 0 to 180
+    default_y_deg = 90 #goes from 0 to 180
+    current_x_deg = default_x_deg 
+    current_y_deg = default_y_deg
+    pix_per_x_deg = 180 # used to adjust movement sensitivity
+    pix_per_y_deg = 50 # used to adjust movement sensitivity
+    max_x_deg = default_x_deg + 45
+    min_x_deg = default_x_deg - 45
+    max_y_deg = default_y_deg + 45
+    min_y_deg = default_y_deg - 45    
 
     def __init__(self):
         print("Initializing the servo...")
         self.kit = adafruit_servokit.ServoKit(channels=16)
         self.num_ports = 2
         self.resetAll()
+        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
+        self.setAngle(self.servo_ch_x, int(self.current_x_deg))   
         print("Initializing complete.")
 
     def setAngle(self, port, angle):
-        if(port == 0):
-            if (angle < self.angle_y_min):
-                self.kit.servo[port].angle = self.angle_y_min
-            elif (angle > self.angle_y_max):
-                self.kit.servo[port].angle = self.angle_y_max
+        if(port == self.servo_ch_y):
+            if (angle < self.min_y_deg):
+                self.kit.servo[port].angle = self.min_y_deg
+            elif (angle > self.max_y_deg):
+                self.kit.servo[port].angle = self.max_y_deg
             else:
                 self.kit.servo[port].angle = angle
             print("servo set angle y: "+str(angle))
-        if(port == 1):
-            if (angle < self.angle_x_min):
-                self.kit.servo[port].angle = self.angle_x_min
-            elif (angle > self.angle_x_max):
-                self.kit.servo[port].angle = self.angle_x_max
+        if(port == self.servo_ch_x):
+            if (angle < self.min_x_deg):
+                self.kit.servo[port].angle = self.min_x_deg
+            elif (angle > self.max_x_deg):
+                self.kit.servo[port].angle = self.max_x_deg
             else:
                 self.kit.servo[port].angle = angle
             print("servo set angle x: "+str(angle))
+
+    ########### Calculate and control horizontally ##########
+    def moveX(self,x_error):
+        self.current_x_deg = self.current_x_deg + x_error/self.pix_per_x_deg
+        if(self.current_x_deg < self.min_x_deg):
+            self.current_x_deg = self.min_x_deg
+        if(self.current_x_deg > self.max_x_deg):
+            self.current_x_deg = self.max_x_deg    
+        print("gimbal x degree: "+str(self.current_x_deg))
+        # Command servo to change
+        self.setAngle(self.servo_ch_x, int(self.current_x_deg))
+
+    ########### Calculate and control vertically ##########
+    def moveY(self,y_error):
+        self.current_y_deg = self.current_y_deg + y_error/self.pix_per_y_deg
+        if(self.current_y_deg < self.min_y_deg):
+            self.current_y_deg = self.min_y_deg
+        if(self.current_y_deg > self.max_y_deg):
+            self.current_y_deg = self.max_y_deg                      
+        print("gimbal y degree: "+str(self.current_y_deg))
+        # Command servo to change
+        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
+
         
     def getAngle(self, port):
         if(port < 2):
@@ -70,39 +92,96 @@ class ServoKit(object):
 
     def reset(self, port):
         if(port == 0):
-            self.kit.servo[port].angle = self.default_angle_y
+            self.kit.servo[port].angle = self.default_y_deg
         if(port == 1):
-            self.kit.servo[port].angle = self.default_angle_x
+            self.kit.servo[port].angle = self.default_x_deg
 
     def resetAll(self):
-        self.kit.servo[0].angle = self.default_angle_y
-        self.kit.servo[1].angle = self.default_angle_x
-        print("Servo ch 0: "+str(self.default_angle_y))
-        print("Servo ch 1: "+str(self.default_angle_x))        
-
-connection_string = '/dev/ttyAMA0'
-print("Connecting to vehicle on: " + str(connection_string))  # Connect to the Vehicle
-vehicle = connect(connection_string, wait_ready=True,baud=57600)
-print("Connected to: " +str(vehicle))
-vehicle.flush() #basically a clear all command
-
-def condition_gimbal_pitch(deg):
-   #vehicle.flush() put in main code only once
-   #^^^this doesn't need to run twice per pitch update
-   msg = vehicle.message_factory.mount_control_encode(
-           0, 1,    # target system, target component
-           int(deg*100), # pitch is in centidegrees, goes from -90 to zero i think
-           0, # roll
-           0, # yaw is in centidegrees
-           0 # save position
-           )
-   print("mavlink message is: " + str(msg))
-   vehicle.send_mavlink(msg)
-   vehicle.flush()
+        self.kit.servo[self.servo_ch_y].angle = self.default_y_deg
+        self.kit.servo[self.servo_ch_x].angle = self.default_x_deg
+        print("Servo ch y: "+str(self.default_y_deg))
+        print("Servo ch x: "+str(self.default_x_deg))        
 
 
+##################### Drone Control ##########################
+class DroneControl(object):
+    # Connect to the Vehicle
+    conn_string = '/dev/ttyAMA0'
+    servo_ch_elevator = 2
+    servo_ch_rudder = 4
+    pwm_at_90_x = 1600 # servo position when flying straight
+    pwm_at_90_y = 1600 
+    
+    default_x_deg = 90 #goes from 0 to 180
+    default_y_deg = 90 #goes from 0 to 180
+    current_x_deg = default_x_deg 
+    current_y_deg = default_y_deg
+    pix_per_x_deg = 180 # used to adjust movement sensitivity
+    pix_per_y_deg = 50 # used to adjust movement sensitivity
+    max_x_deg = default_x_deg + 45
+    min_x_deg = default_x_deg - 45
+    max_y_deg = default_y_deg + 45
+    min_y_deg = default_y_deg - 45    
+        
+    def __init__(self):
+        self.the_conn = mavutil.mavlink_connection(self.conn_string,baud=57600)
+        print("Connecting to vehicle on: " + str(self.conn_string))  
+        self.the_conn.wait_heartbeat()
+        print("Heartbeat from system ( system %u component %u)" % (self.the_conn.target_system, self.the_conn.target_component))
 
+    # Preflight/launch
+    def disarm(self):
+        #DISARM = 0, 0, 0, 0, 0, 0, 0, 0
+        self.the_conn.mav.command_long_send(self.the_conn.target_system, self.the_conn.target_component, mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 0, 0, 0, 0, 0, 0, 0)
+        msg = self.the_conn.recv_match(type='COMMAND_ACK', blocking=True)
+        print(msg)
 
+    def arm(self):
+        #ARM = 0, 1, 0, 0, 0, 0, 0, 0
+        self.the_conn.mav.command_long_send(self.the_conn.target_system, self.the_conn.target_component, mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 1, 0, 0, 0, 0, 0, 0)
+        msg = self.the_conn.recv_match(type='COMMAND_ACK', blocking=True)
+        print(msg)
+
+    def takeoff(self,altitude):
+        #Take off to given altitude meters
+        self.the_conn.mav.send(mavutil.mavlink.MAVLink_set_position_target_local_ned_message(altitude,self.the_conn.target_system, self.the_conn.target_component,mavutil.mavlink.MAV_FRAME_LOCAL_NED, int(0b110111111000) , 20,0,-10,0,0,0,0,0,0,0,0))
+        #msg = the_connection.recv_match(type='COMMAND_ACK', blocking=True)
+        #print(msg)
+
+    #Flight control by image processing here
+    def set_rc_channel_pwm(self,channel_id, pwm=1500):
+        if channel_id < 1 or channel_id > 18:
+            print("channel does not exist.")
+            return
+        rc_channel_values = [65535 for _ in range(18)]
+        rc_channel_values[channel_id - 1] = pwm
+        self.the_conn.mav.rc_channels_override_send(self.the_conn.target_system, self.the_conn.target_component, *rc_channel_values)
+
+    #Rudder control
+    def control_x(self,x_error):
+        self.current_x_deg = self.current_x_deg + x_error/self.pix_per_x_deg
+        if(self.current_x_deg < self.min_x_deg):
+            self.current_x_deg = self.min_x_deg
+        if(self.current_x_deg > self.max_x_deg):
+            self.current_x_deg = self.max_x_deg    
+            
+        x_pwm = int(self.pwm_at_90_x*self.current_x_deg/90)
+        self.set_rc_channel_pwm(self.servo_ch_rudder,x_pwm)
+        print("x degree: "+str(self.current_x_deg)+" PWM:" +str(x_pwm))
+
+    #Elevator control
+    def control_y(self,y_error):
+        self.current_y_deg = self.current_y_deg + y_error/self.pix_per_y_deg
+        if(self.current_y_deg < self.min_y_deg):
+            self.current_y_deg = self.min_y_deg
+        if(self.current_y_deg > self.max_y_deg):
+            self.current_y_deg = self.max_y_deg         
+             
+        y_pwm = int(self.pwm_at_90_y*self.current_y_deg/90)    
+        self.set_rc_channel_pwm(self.servo_ch_elevator,y_pwm)
+        print("y degree: "+str(self.current_y_deg)+" PWM:" +str(y_pwm))
+
+##################### Webcam Interface ##########################
 
 # Define VideoStream class to handle streaming of video from webcam in separate processing thread
 # Source - Adrian Rosebrock, PyImageSearch: https://www.pyimagesearch.com/2015/12/28/increasing-raspberry-pi-fps-with-python-and-opencv/
@@ -146,6 +225,9 @@ class VideoStream:
 	# Indicate that the camera and thread should be stopped
         self.stopped = True
 
+
+##################### Main Parsing ##########################
+
 # Define and parse input arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--modeldir', help='Folder the .tflite file is located in',
@@ -171,6 +253,7 @@ resW, resH = args.resolution.split('x')
 imW, imH = int(resW), int(resH)
 use_TPU = args.edgetpu
 
+##################### TensorFlow ##########################
 # Import TensorFlow libraries
 # If tflite_runtime is installed, import interpreter from tflite_runtime, else import from regular tensorflow
 # If using Coral Edge TPU, import the load_delegate library
@@ -212,8 +295,7 @@ if labels[0] == '???':
 # Load the Tensorflow Lite model.
 # If using Edge TPU, use special load_delegate argument
 if use_TPU:
-    interpreter = Interpreter(model_path=PATH_TO_CKPT,
-                              experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    interpreter = Interpreter(model_path=PATH_TO_CKPT,experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
     print(PATH_TO_CKPT)
 else:
     interpreter = Interpreter(model_path=PATH_TO_CKPT)
@@ -240,23 +322,17 @@ if ('StatefulPartitionedCall' in outname): # This is a TF2 model
 else: # This is a TF1 model
     boxes_idx, classes_idx, scores_idx = 0, 1, 2
 
-
+##################### Object Position/Tracking ##########################
 
 # print object coordinates
 def mapObjectPosition(x, y):
     print("[INFO] Object Center coordinates at X0 = {0} and Y0 =  {1}".format(x, y))
 
 x_max = 1280 #640  # width of pi camera image
-y_max = 720 #480   # height of pi camera image)
-x_center = int(x_max / 2)  # center value used for readability/ease of editing
-y_center = int(y_max / 2)  # center value used for readability/ease of editing
-print(str(x_center)+ " " +str(y_center))
-
-global gimbal_x_pos
-gimbal_x_pos = 90 #goes from 0 to 180
-global gimbal_y_pos
-gimbal_y_pos = 90 #goes from 0 to 180
-pix_per_deg = 60 # used to adjust movement sensitivity
+y_max = 720 #480   # height of pi camera image
+x_center = int(x_max / 2)  # center value
+y_center = int(y_max / 2)  # center value
+print("Center of Image: "+ str(x_center)+ "," +str(y_center))
 
 
 
@@ -270,13 +346,11 @@ def object_tracking(x,y): #x and y are the position from image processing
     print("X error: " +str(x_error))
     print("Y error: " +str(y_error))
 
-
+##################### Object Tracking ##########################
 # List of objects to be detected
 objects=['airplane','person']
 # Definition for OpenCV object detection
 def object_detection():  # needs to be modified so definition can be called as part of main function
-    global gimbal_x_pos
-    global gimbal_y_pos
     # Grab frame from video stream
     frame1 = videostream.read()
 
@@ -299,11 +373,12 @@ def object_detection():  # needs to be modified so definition can be called as p
     boxes = interpreter.get_tensor(output_details[boxes_idx]['index'])[0] # Bounding box coordinates of detected objects
     scores = interpreter.get_tensor(output_details[scores_idx]['index'])[0] # Confidence of detected objects
 
+    # Draw a circle in the middle of the frame
     cv2.circle(frame, (x_center,y_center), 20,(0, 255, 255), 2)
+
     # Loop over all detections and draw detection box 
     scores_max = 0
-    i_max = 0
-        
+    i_max = 0        
     for i in range(len(scores)):
         #if confidence is above minimum threshold
         if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
@@ -337,30 +412,20 @@ def object_detection():  # needs to be modified so definition can be called as p
         cv2.circle(frame, (x,y), 20,(0, 255, 255), 2)
         mapObjectPosition(x,y)
         object_tracking(x,y)
-                
-        gimbal_x_pos = gimbal_x_pos + (x-x_center)/180
-        if(gimbal_x_pos < servoKit.angle_x_min):
-            gimbal_x_pos = servoKit.angle_x_min
-        if(gimbal_x_pos > servoKit.angle_x_max):
-            gimbal_x_pos = servoKit.angle_x_max    
-        print("x: "+str(y))
-        print("x_center: "+str(x_center))
-        print("gimbal x: "+str(gimbal_x_pos))
-                
-        gimbal_y_pos = gimbal_y_pos + (y_center-y)/50
-        if(gimbal_y_pos < servoKit.angle_y_min):
-            gimbal_y_pos = servoKit.angle_y_min
-        if(gimbal_y_pos > servoKit.angle_y_max):
-            gimbal_y_pos = servoKit.angle_y_max  
-                    
-        print("y: "+str(y))
-        print("y_center: "+str(y_center))
-        print("gimbal y: "+str(gimbal_y_pos))
 
-        servoKit.setAngle(0, int(gimbal_y_pos))
-        servoKit.setAngle(1, int(gimbal_x_pos))            
-        print("sending y degree: "+str(gimbal_y_pos))		
-        condition_gimbal_pitch(gimbal_y_pos)    
+
+        print("x: "+str(x))
+        print("x_center: "+str(x_center))
+        print("y: "+str(y))
+        print("y_center: "+str(y_center))   
+        
+        #comment out the gimbal here              
+        cameragimbal.moveX(x-x_center)
+        cameragimbal.moveY(y_center-y)        #image is flipped vertically
+        
+        # Command vehicle to change          
+        drone.control_x(x-x_center)   
+        drone.control_y(y_center-y)    
 
     # Draw framerate in corner of frame
     cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
@@ -377,10 +442,12 @@ freq = cv2.getTickFrequency()
 videostream = VideoStream(resolution=(imW,imH),framerate=30).start()
 time.sleep(1)
 
-#Gimbal servo
-servoKit = ServoKit()
-servoKit.setAngle(0, int(gimbal_y_pos))
-servoKit.setAngle(1, int(gimbal_x_pos))    
+#Gimbal servo initialize
+cameragimbal = ServoKit()
+ 
+
+#DroneControl initialize
+drone = DroneControl()
 
 while True == True:
     # Start timer (for calculating frame rate)
