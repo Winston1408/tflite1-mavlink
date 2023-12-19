@@ -25,7 +25,7 @@ References:
 3)  https://github.com/ArduCAM/PCA9685
 4)  https://ardupilot.org/dev/docs/raspberry-pi-via-mavlink.html
 
-Raspberry Pi4 HW Configuraton in Raspi-config
+Raspberry Pi4 HW Configuraton in Raspi-config:
 >> sudo raspi-config
 1)  select: 3 Interface Options    Configure connections to peripherals.
 2)  select: I1 Legacy Camera Enable/disable legacy camera support.  
@@ -43,6 +43,9 @@ Raspberry Pi4 HW Configuraton in Raspi-config
 7)  >> sudo vi /etc/pip.conf append
     break-system-packages = true
 8)  >> reboot
+
+Wiring between Raspberr Pi 4 and Pixhawk 4:
+https://docs.px4.io/main/en/companion_computer/pixhawk_rpi.html
 
 Download this code and run the shell script:
 git clone https://github.com/winston1408/tflite1-mavlink.git
