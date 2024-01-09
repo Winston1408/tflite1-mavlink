@@ -2,7 +2,7 @@
 Image recognition and tracking based on TensorFlow-Lite-Object-Detection-on-Android-and-Raspberry-Pi and control a gimbal to track the recognized object at the center of image.  Gimbal based on PCA9685.  Also send message on MAVLink.
 
 To run this code:
-python3 TFLite_detection_webcam.py --modeldir=Sample_TFLite_model --edgetpu
+python3 TFLite_detection_webcam.py
 
 Required hardware:
 1)  Raspberry Pi 4 Computer Model B 8GB Single Board Computer Suitable for Building Mini PC/Smart Robot/Game Console/Workstation/Media Center/Etc.
