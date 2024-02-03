@@ -112,8 +112,138 @@ class ServoKit(object):
         print("Servo ch x: "+str(self.default_x_deg))        
 
 
-##################### Drone Control ##########################
-class DroneControl(object):
+##################### Drone Control-via Dronekit ##########################
+class DroneKitControl(object):
+    # Connect to the Vehicle
+    conn_string = '/dev/ttyAMA0'
+    servo_ch_elevator = 2
+    servo_ch_rudder = 4
+    pwm_at_90_x = 1600 # servo position when flying straight
+    pwm_at_90_y = 1600 
+    
+    default_x_deg = 90 #goes from 0 to 180
+    default_y_deg = 90 #goes from 0 to 180
+    current_x_deg = default_x_deg 
+    current_y_deg = default_y_deg
+    pix_per_x_deg = 180 # used to adjust movement sensitivity
+    pix_per_y_deg = 50 # used to adjust movement sensitivity
+    max_x_deg = default_x_deg + 45
+    min_x_deg = default_x_deg - 45
+    max_y_deg = default_y_deg + 45
+    min_y_deg = default_y_deg - 45    
+    
+    def __init__(self):
+        print("Connecting to vehicle on: " + str(self.conn_string))  
+        self.vehicle = connect(self.conn_string, wait_ready=True, baud=57600)
+        print("Connected to vehicle on: " + str(self.conn_string))  
+        self.disarm()
+        time.sleep(3)  
+
+    # Preflight/launch
+    def disarm(self):
+        self.vehicle.armed = False
+        print("Vehicle disarmed")
+
+    def arm(self):
+        print("Vehicle arming...")
+        self.vehicle.armed = True
+        while not self.vehicle.armed:
+            time.sleep(.1)        
+        print("Vehicle armed")
+
+    def takeoff(self,altitude):
+        print("Vehicle taking off: "+str(altitude))
+        self.vehicle.simple_takeoff(altitude)
+        print("Vehicle took off")
+
+    def state(self):
+        self.vehicle.wait_ready('autopilot_version')
+
+        # Get all vehicle attributes (state)
+        print("\nGet all vehicle attribute values:")
+        print(" Autopilot Firmware version: %s" % self.vehicle.version)
+        print("   Major version number: %s" % self.vehicle.version.major)
+        print("   Minor version number: %s" % self.vehicle.version.minor)
+        print("   Patch version number: %s" % self.vehicle.version.patch)
+        print("   Release type: %s" % self.vehicle.version.release_type())
+        print("   Release version: %s" % self.vehicle.version.release_version())
+        print("   Stable release?: %s" % self.vehicle.version.is_stable())
+        print(" Autopilot capabilities")
+        print("   Supports MISSION_FLOAT message type: %s" % self.vehicle.capabilities.mission_float)
+        print("   Supports PARAM_FLOAT message type: %s" % self.vehicle.capabilities.param_float)
+        print("   Supports MISSION_INT message type: %s" % self.vehicle.capabilities.mission_int)
+        print("   Supports COMMAND_INT message type: %s" % self.vehicle.capabilities.command_int)
+        print("   Supports PARAM_UNION message type: %s" % self.vehicle.capabilities.param_union)
+        print("   Supports ftp for file transfers: %s" % self.vehicle.capabilities.ftp)
+        print("   Supports commanding attitude offboard: %s" % self.vehicle.capabilities.set_attitude_target)
+        print("   Supports commanding position and velocity targets in local NED frame: %s" % self.vehicle.capabilities.set_attitude_target_local_ned)
+        print("   Supports set position + velocity targets in global scaled integers: %s" % self.vehicle.capabilities.set_altitude_target_global_int)
+        print("   Supports terrain protocol / data handling: %s" % self.vehicle.capabilities.terrain)
+        print("   Supports direct actuator control: %s" % self.vehicle.capabilities.set_actuator_target)
+        print("   Supports the flight termination command: %s" % self.vehicle.capabilities.flight_termination)
+        print("   Supports mission_float message type: %s" % self.vehicle.capabilities.mission_float)
+        print("   Supports onboard compass calibration: %s" % self.vehicle.capabilities.compass_calibration)
+        print(" Global Location: %s" % self.vehicle.location.global_frame)
+        print(" Global Location (relative altitude): %s" % self.vehicle.location.global_relative_frame)
+        print(" Local Location: %s" % self.vehicle.location.local_frame)
+        print(" Attitude: %s" % self.vehicle.attitude)
+        print(" Velocity: %s" % self.vehicle.velocity)
+        print(" GPS: %s" % self.vehicle.gps_0)
+        print(" Gimbal status: %s" % self.vehicle.gimbal)
+        print(" Battery: %s" % self.vehicle.battery)
+        print(" EKF OK?: %s" % self.vehicle.ekf_ok)
+        print(" Last Heartbeat: %s" % self.vehicle.last_heartbeat)
+        print(" Rangefinder: %s" % self.vehicle.rangefinder)
+        print(" Rangefinder distance: %s" % self.vehicle.rangefinder.distance)
+        print(" Rangefinder voltage: %s" % self.vehicle.rangefinder.voltage)
+        print(" Heading: %s" % self.vehicle.heading)
+        print(" Is Armable?: %s" % self.vehicle.is_armable)
+        print(" System status: %s" % self.vehicle.system_status.state)
+        print(" Groundspeed: %s" % self.vehicle.groundspeed)    # settable
+        print(" Airspeed: %s" % self.vehicle.airspeed)    # settable
+        print(" Mode: %s" % self.vehicle.mode.name)    # settable
+        print(" Armed: %s" % self.vehicle.armed)    # settable
+
+        
+    #Flight control by image processing here
+    def set_rc_channel_pwm(self,channel_id, pwm=1500):
+        if channel_id < 1 or channel_id > 18:
+            print("channel does not exist.")
+            return
+        rc_channel_values = [65535 for _ in range(18)]
+        rc_channel_values[channel_id - 1] = pwm
+        print("channel: "+str(channel_id)+" pwm value: "+str(pwm))
+
+        self.vehicle.channels.overrides[str(channel_id)] = pwm          
+        # Get all original channel values (after override)
+        print("\nChannel overrides: %s" % self.vehicle.channels.overrides)
+
+    #Rudder control
+    def control_x(self,x_error):
+        self.current_x_deg = self.current_x_deg + x_error/self.pix_per_x_deg
+        if(self.current_x_deg < self.min_x_deg):
+            self.current_x_deg = self.min_x_deg
+        if(self.current_x_deg > self.max_x_deg):
+            self.current_x_deg = self.max_x_deg    
+            
+        x_pwm = int(self.pwm_at_90_x*self.current_x_deg/90)
+        self.set_rc_channel_pwm(self.servo_ch_rudder,x_pwm)
+        print("x degree: "+str(self.current_x_deg)+" PWM:" +str(x_pwm))
+
+    #Elevator control
+    def control_y(self,y_error):
+        self.current_y_deg = self.current_y_deg + y_error/self.pix_per_y_deg
+        if(self.current_y_deg < self.min_y_deg):
+            self.current_y_deg = self.min_y_deg
+        if(self.current_y_deg > self.max_y_deg):
+            self.current_y_deg = self.max_y_deg         
+             
+        y_pwm = int(self.pwm_at_90_y*self.current_y_deg/90)    
+        self.set_rc_channel_pwm(self.servo_ch_elevator,y_pwm)
+        print("y degree: "+str(self.current_y_deg)+" PWM:" +str(y_pwm))        
+
+##################### Drone Control-via Mavlink ##########################
+class DroneMavControl(object):
     # Connect to the Vehicle
     conn_string = '/dev/ttyAMA0'
     servo_ch_elevator = 2
@@ -137,6 +267,8 @@ class DroneControl(object):
         print("Connecting to vehicle on: " + str(self.conn_string))  
         self.the_conn.wait_heartbeat()
         print("Heartbeat from system ( system %u component %u)" % (self.the_conn.target_system, self.the_conn.target_component))
+        self.disarm()
+        time.sleep(3)  
 
     # Preflight/launch
     def disarm(self):
@@ -157,13 +289,26 @@ class DroneControl(object):
         #msg = the_connection.recv_match(type='COMMAND_ACK', blocking=True)
         #print(msg)
 
+    def state(self):
+        print("here comes the states: ")
+        mode = 'ACRO'
+        if mode not in self.the_conn.mode_mapping():
+            print('Unknown mode : {}'.format(mode))
+            print('Try:', list(self.the_conn.mode_mapping().keys()))
+            exit(1)
+        
+        mode_id = self.the_conn.mode_mapping()[mode]
+        self.the_conn.mav.set_mode_send(self.the_conn.target_system,mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,mode_id)
+
     #Flight control by image processing here
     def set_rc_channel_pwm(self,channel_id, pwm=1500):
         if channel_id < 1 or channel_id > 18:
             print("channel does not exist.")
             return
-        rc_channel_values = [65535 for _ in range(18)]
+        rc_channel_values = [65535 for _ in range(8)]
         rc_channel_values[channel_id - 1] = pwm
+        print(rc_channel_values)
+        self.the_conn.set_servo(channel_id,pwm)
         self.the_conn.mav.rc_channels_override_send(self.the_conn.target_system, self.the_conn.target_component, *rc_channel_values)
 
     #Rudder control
@@ -292,9 +437,8 @@ class VideoDetectTrack:
         self.width = self.input_details[0]['shape'][2]
         print("height: ")
         print(self.height)
-        print(" ")
+        print("width: ")
         print(self.width)
-        print(" ")
 
         self.floating_model = (self.input_details[0]['dtype'] == np.float32)
         print(self.floating_model)
@@ -425,7 +569,13 @@ cameragimbal = ServoKit()
 object_detect = VideoDetectTrack()
 
 #DroneControl initialize
-drone = DroneControl()
+#via MAVLink
+#drone = DroneMavControl()
+#via DroneKit
+drone = DroneKitControl()
+drone.arm()
+drone.takeoff(30)
+drone.state()
 
 while True == True:
     # Start timer (for calculating frame rate)
@@ -445,8 +595,5 @@ while True == True:
 cv2.destroyAllWindows()
 videostream.stop()
 
-# Close vehicle object
-print("Close vehicle object")
-vehicle.close()
 
 print("Completed")
