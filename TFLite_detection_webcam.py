@@ -20,7 +20,7 @@ import time
 from threading import Thread
 import importlib.util
 
-import adafruit_servokit
+#import adafruit_servokit
 
 ##################### TensorFlow ##########################
 # Import TensorFlow libraries
@@ -30,86 +30,87 @@ pkg = importlib.util.find_spec('tflite_runtime')
 from tflite_runtime.interpreter import Interpreter, load_delegate
 
 ##################### Camera Gimbal Control ##########################
+#Arducam Upgraded Camera Pan Tilt Platform I2C based
 
-class ServoKit(object):
-    servo_ch_x = 1
-    servo_ch_y = 0
-    default_x_deg = 90 #goes from 0 to 180
-    default_y_deg = 90 #goes from 0 to 180
-    current_x_deg = default_x_deg 
-    current_y_deg = default_y_deg
-    pix_per_x_deg = 180 # used to adjust movement sensitivity
-    pix_per_y_deg = 50 # used to adjust movement sensitivity
-    max_x_deg = default_x_deg + 45
-    min_x_deg = default_x_deg - 45
-    max_y_deg = default_y_deg + 45
-    min_y_deg = default_y_deg - 45    
+#class ServoKit(object):
+#    servo_ch_x = 1
+#    servo_ch_y = 0
+#    default_x_deg = 90 #goes from 0 to 180
+#    default_y_deg = 90 #goes from 0 to 180
+#    current_x_deg = default_x_deg 
+#    current_y_deg = default_y_deg
+#    pix_per_x_deg = 180 # used to adjust movement sensitivity
+#    pix_per_y_deg = 50 # used to adjust movement sensitivity
+#    max_x_deg = default_x_deg + 45
+#    min_x_deg = default_x_deg - 45
+#    max_y_deg = default_y_deg + 45
+#    min_y_deg = default_y_deg - 45    
 
-    def __init__(self):
-        print("Initializing the servo...")
-        self.kit = adafruit_servokit.ServoKit(channels=16)
-        self.num_ports = 2
-        self.resetAll()
-        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
-        self.setAngle(self.servo_ch_x, int(self.current_x_deg))   
-        print("Initializing complete.")
+#    def __init__(self):
+#        print("Initializing the servo...")
+#        self.kit = adafruit_servokit.ServoKit(channels=16)
+#        self.num_ports = 2
+#        self.resetAll()
+#        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
+#        self.setAngle(self.servo_ch_x, int(self.current_x_deg))   
+#        print("Initializing complete.")
 
-    def setAngle(self, port, angle):
-        if(port == self.servo_ch_y):
-            if (angle < self.min_y_deg):
-                self.kit.servo[port].angle = self.min_y_deg
-            elif (angle > self.max_y_deg):
-                self.kit.servo[port].angle = self.max_y_deg
-            else:
-                self.kit.servo[port].angle = angle
-            print("servo set angle y: "+str(angle))
-        if(port == self.servo_ch_x):
-            if (angle < self.min_x_deg):
-                self.kit.servo[port].angle = self.min_x_deg
-            elif (angle > self.max_x_deg):
-                self.kit.servo[port].angle = self.max_x_deg
-            else:
-                self.kit.servo[port].angle = angle
-            print("servo set angle x: "+str(angle))
+#    def setAngle(self, port, angle):
+#        if(port == self.servo_ch_y):
+#            if (angle < self.min_y_deg):
+#                self.kit.servo[port].angle = self.min_y_deg
+#            elif (angle > self.max_y_deg):
+#                self.kit.servo[port].angle = self.max_y_deg
+#            else:
+#                self.kit.servo[port].angle = angle
+#            print("servo set angle y: "+str(angle))
+#        if(port == self.servo_ch_x):
+#            if (angle < self.min_x_deg):
+#                self.kit.servo[port].angle = self.min_x_deg
+#            elif (angle > self.max_x_deg):
+#                self.kit.servo[port].angle = self.max_x_deg
+#            else:
+#                self.kit.servo[port].angle = angle
+#            print("servo set angle x: "+str(angle))
 
     ########### Calculate and control horizontally ##########
-    def moveX(self,x_error):
-        self.current_x_deg = self.current_x_deg + x_error/self.pix_per_x_deg
-        if(self.current_x_deg < self.min_x_deg):
-            self.current_x_deg = self.min_x_deg
-        if(self.current_x_deg > self.max_x_deg):
-            self.current_x_deg = self.max_x_deg    
-        print("gimbal x degree: "+str(self.current_x_deg))
+#    def moveX(self,x_error):
+#        self.current_x_deg = self.current_x_deg + x_error/self.pix_per_x_deg
+#        if(self.current_x_deg < self.min_x_deg):
+#            self.current_x_deg = self.min_x_deg
+#        if(self.current_x_deg > self.max_x_deg):
+#            self.current_x_deg = self.max_x_deg    
+#        print("gimbal x degree: "+str(self.current_x_deg))
         # Command servo to change
-        self.setAngle(self.servo_ch_x, int(self.current_x_deg))
+#        self.setAngle(self.servo_ch_x, int(self.current_x_deg))
 
     ########### Calculate and control vertically ##########
-    def moveY(self,y_error):
-        self.current_y_deg = self.current_y_deg + y_error/self.pix_per_y_deg
-        if(self.current_y_deg < self.min_y_deg):
-            self.current_y_deg = self.min_y_deg
-        if(self.current_y_deg > self.max_y_deg):
-            self.current_y_deg = self.max_y_deg                      
-        print("gimbal y degree: "+str(self.current_y_deg))
+#    def moveY(self,y_error):
+#        self.current_y_deg = self.current_y_deg + y_error/self.pix_per_y_deg
+#        if(self.current_y_deg < self.min_y_deg):
+#            self.current_y_deg = self.min_y_deg
+#        if(self.current_y_deg > self.max_y_deg):
+#            self.current_y_deg = self.max_y_deg                      
+#        print("gimbal y degree: "+str(self.current_y_deg))
         # Command servo to change
-        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
+#        self.setAngle(self.servo_ch_y, int(self.current_y_deg))
 
         
-    def getAngle(self, port):
-        if(port < 2):
-            return self.kit.servo[port].angle
+#    def getAngle(self, port):
+#        if(port < 2):
+#            return self.kit.servo[port].angle
 
-    def reset(self, port):
-        if(port == 0):
-            self.kit.servo[port].angle = self.default_y_deg
-        if(port == 1):
-            self.kit.servo[port].angle = self.default_x_deg
+#    def reset(self, port):
+#        if(port == 0):
+#            self.kit.servo[port].angle = self.default_y_deg
+#        if(port == 1):
+#            self.kit.servo[port].angle = self.default_x_deg
 
-    def resetAll(self):
-        self.kit.servo[self.servo_ch_y].angle = self.default_y_deg
-        self.kit.servo[self.servo_ch_x].angle = self.default_x_deg
-        print("Servo ch y: "+str(self.default_y_deg))
-        print("Servo ch x: "+str(self.default_x_deg))        
+#    def resetAll(self):
+#        self.kit.servo[self.servo_ch_y].angle = self.default_y_deg
+#        self.kit.servo[self.servo_ch_x].angle = self.default_x_deg
+#        print("Servo ch y: "+str(self.default_y_deg))
+#        print("Servo ch x: "+str(self.default_x_deg))        
 
 
 ##################### Drone Control-via Dronekit ##########################
@@ -385,6 +386,7 @@ class VideoStream:
 class VideoDetectTrack:
     # List of objects to be detected
     objects=['airplane','person']
+    #objects=['roses','tulips']
     #subdir name.  subdirectory to put the following two files
     MODEL_NAME = 'Sample_TFLite_model'
     #graph file name
@@ -539,8 +541,8 @@ class VideoDetectTrack:
             print("y_center: "+str(self.y_center))   
         
             #comment out the gimbal here              
-            cameragimbal.moveX(x-self.x_center)
-            cameragimbal.moveY(self.y_center-y)        #image is flipped vertically
+#            cameragimbal.moveX(x-self.x_center)
+#            cameragimbal.moveY(self.y_center-y)        #image is flipped vertically
         
             # Command vehicle to change          
             drone.control_x(x-self.x_center)   
@@ -564,7 +566,7 @@ videostream = VideoStream(resolution=(1280,720),framerate=30).start()
 time.sleep(1)
 
 #Gimbal servo initialize
-cameragimbal = ServoKit()
+#cameragimbal = ServoKit()
 
 object_detect = VideoDetectTrack()
 
